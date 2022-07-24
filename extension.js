@@ -15,7 +15,7 @@ const WorkspaceThumbnail = imports.ui.workspaceThumbnail;
 var applications = extension.imports.applications;
 var { Service } = extension.imports.dbus_service;
 var { OVERVIEW_WORKSPACES, OVERVIEW_APPLICATIONS, OVERVIEW_LAUNCHER } = extension.imports.overview;
-var { overview_visible, overview_show, overview_hide, overview_toggle } = extension.imports.overview;
+var { overview_visible, overview_show, overview_hide, overview_toggle, with_pop_shell  } = extension.imports.overview;
 var { CosmicTopBarButton } = extension.imports.topBarButton;
 var { settings_new_schema } = extension.imports.settings;
 
@@ -240,6 +240,21 @@ function gnome_40_enable() {
         if (symbol === Clutter.KEY_Escape) {
             Main.overview.hide();
             return Clutter.EVENT_STOP;
+        } else if (this._shouldTriggerSearch(symbol)) {
+            if (this._activePage === this._appsPage) { this.startSearch(event); }
+            else {
+                if (!Main.overview.animationInProgress) {
+                    const ANIMATION_TIME_ORIGINAL = Overview.ANIMATION_TIME;
+                    Overview.ANIMATION_TIME = 50;
+                    Main.overview.hide();
+                    with_pop_shell((ext) => {
+                        ext.tiler.exit(ext);
+                        ext.window_search.load_desktop_files();
+                        ext.window_search.open(ext, event.get_key_unicode());
+                    });
+                    Overview.ANIMATION_TIME = ANIMATION_TIME_ORIGINAL;
+                }
+            }
         }
         return Clutter.EVENT_PROPAGATE;
     });
@@ -466,8 +481,8 @@ function disable() {
     // Remove injections
     let i;
     for(i in injections) {
-       let injection = injections[i];
-       injection["object"][injection["parameter"]] = injection["value"];
+        let injection = injections[i];
+        injection["object"][injection["parameter"]] = injection["value"];
     }
 
     clock_alignment(CLOCK_CENTER);
